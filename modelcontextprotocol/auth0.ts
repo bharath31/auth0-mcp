@@ -1,10 +1,6 @@
 import { ManagementClient } from 'auth0';
 import { z } from 'zod';
-import {
-  MCPFunction,
-  MCPFunctionDefinition,
-  MCPFunctionResponse,
-} from './types';
+import { MCPFunction, MCPFunctionDefinition, MCPFunctionResponse } from './types';
 import { Auth0User } from './auth0-types';
 
 // Schema for Auth0 configuration
@@ -51,7 +47,7 @@ export class Auth0AgentToolkit {
 
   constructor(config: z.infer<typeof Auth0ConfigSchema>) {
     const validatedConfig = Auth0ConfigSchema.parse(config);
-    
+
     this.managementClient = new ManagementClient({
       domain: validatedConfig.domain,
       clientId: validatedConfig.clientId,
@@ -60,14 +56,14 @@ export class Auth0AgentToolkit {
   }
 
   // Function to create a new user
-  public createUser: MCPFunction = async (
-    params: unknown
-  ): Promise<MCPFunctionResponse> => {
+  public createUser: MCPFunction = async (params: unknown): Promise<MCPFunctionResponse> => {
     try {
       const validatedParams = CreateUserParamsSchema.parse(params);
-      
-      const user = await this.managementClient.users.create(validatedParams) as unknown as Auth0User;
-      
+
+      const user = (await this.managementClient.users.create(
+        validatedParams
+      )) as unknown as Auth0User;
+
       return {
         content: {
           user_id: user.user_id,
@@ -84,7 +80,7 @@ export class Auth0AgentToolkit {
           },
         };
       }
-      
+
       return {
         error: {
           message: 'Failed to create user',
@@ -95,14 +91,14 @@ export class Auth0AgentToolkit {
   };
 
   // Function to get a user
-  public getUser: MCPFunction = async (
-    params: unknown
-  ): Promise<MCPFunctionResponse> => {
+  public getUser: MCPFunction = async (params: unknown): Promise<MCPFunctionResponse> => {
     try {
       const validatedParams = GetUserParamsSchema.parse(params);
-      
-      const user = await this.managementClient.users.get({ id: validatedParams.id }) as unknown as Auth0User;
-      
+
+      const user = (await this.managementClient.users.get({
+        id: validatedParams.id,
+      })) as unknown as Auth0User;
+
       return {
         content: {
           user_id: user.user_id,
@@ -122,7 +118,7 @@ export class Auth0AgentToolkit {
           },
         };
       }
-      
+
       return {
         error: {
           message: 'Failed to get user',
@@ -133,15 +129,16 @@ export class Auth0AgentToolkit {
   };
 
   // Function to update a user
-  public updateUser: MCPFunction = async (
-    params: unknown
-  ): Promise<MCPFunctionResponse> => {
+  public updateUser: MCPFunction = async (params: unknown): Promise<MCPFunctionResponse> => {
     try {
       const validatedParams = UpdateUserParamsSchema.parse(params);
       const { id, ...updateData } = validatedParams;
-      
-      const user = await this.managementClient.users.update({ id }, updateData) as unknown as Auth0User;
-      
+
+      const user = (await this.managementClient.users.update(
+        { id },
+        updateData
+      )) as unknown as Auth0User;
+
       return {
         content: {
           user_id: user.user_id,
@@ -158,7 +155,7 @@ export class Auth0AgentToolkit {
           },
         };
       }
-      
+
       return {
         error: {
           message: 'Failed to update user',
@@ -169,14 +166,12 @@ export class Auth0AgentToolkit {
   };
 
   // Function to delete a user
-  public deleteUser: MCPFunction = async (
-    params: unknown
-  ): Promise<MCPFunctionResponse> => {
+  public deleteUser: MCPFunction = async (params: unknown): Promise<MCPFunctionResponse> => {
     try {
       const validatedParams = DeleteUserParamsSchema.parse(params);
-      
+
       await this.managementClient.users.delete({ id: validatedParams.id });
-      
+
       return {
         content: {
           success: true,
@@ -192,7 +187,7 @@ export class Auth0AgentToolkit {
           },
         };
       }
-      
+
       return {
         error: {
           message: 'Failed to delete user',
@@ -224,7 +219,7 @@ export class Auth0AgentToolkit {
         },
         verify_email: {
           type: 'boolean',
-          description: 'Whether to verify the user\'s email',
+          description: "Whether to verify the user's email",
           default: false,
         },
         user_metadata: {
