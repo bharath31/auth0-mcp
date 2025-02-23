@@ -10,15 +10,16 @@ export interface MCPFunctionDefinition {
 }
 
 export interface MCPFunctionResponse {
-  content?: any;
-  error?: {
-    message: string;
-    details?: any;
-  };
+  success: boolean;
+  data?: any;
+  error?: string;
+  query?: string;
 }
 
 export type MCPFunction = (params: unknown) => Promise<MCPFunctionResponse>;
 
 export interface MCPServer {
   functions: [MCPFunctionDefinition, MCPFunction][];
+  start(): Promise<void>;
+  stop(): Promise<void>;
 }

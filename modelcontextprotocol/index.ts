@@ -1,2 +1,2 @@
-export { Auth0MCP } from './toolkit.js';
-export type { Auth0Config } from './toolkit.js';
+export * from './server';
+export * from './toolkit';
