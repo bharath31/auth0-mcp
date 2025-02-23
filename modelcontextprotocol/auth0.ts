@@ -32,6 +32,16 @@ const UpdateUserParamsSchema = z.object({
   blocked: z.boolean().optional(),
 });
 
+const CreateRoleParamsSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+});
+
+const AssignRoleParamsSchema = z.object({
+  user_id: z.string(),
+  roles: z.array(z.string()),
+});
+
 // Schema for get user parameters
 const GetUserParamsSchema = z.object({
   id: z.string(),
@@ -197,6 +207,166 @@ export class Auth0AgentToolkit {
     }
   };
 
+  // Function to create a new role
+  public createRole: MCPFunction = async (params: unknown): Promise<MCPFunctionResponse> => {
+    try {
+      const validatedParams = CreateRoleParamsSchema.parse(params);
+
+      const response = await this.managementClient.roles.create(validatedParams);
+      const role = response.data;
+
+      return {
+        content: {
+          id: role.id,
+          name: role.name,
+          description: role.description,
+        },
+      };
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return {
+          error: {
+            message: 'Invalid parameters provided',
+            details: error.errors,
+          },
+        };
+      }
+
+      return {
+        error: {
+          message: 'Failed to create role',
+          details: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
+  };
+
+  // Function to list roles
+  public listRoles: MCPFunction = async (): Promise<MCPFunctionResponse> => {
+    try {
+      const response = await this.managementClient.roles.getAll();
+      const roles = response.data;
+      return {
+        content: roles.map((role: any) => ({
+          id: role.id,
+          name: role.name,
+          description: role.description,
+        })),
+      };
+    } catch (error) {
+      return {
+        error: {
+          message: 'Failed to list roles',
+          details: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
+  };
+
+  // Function to delete a role
+  public deleteRole: MCPFunction = async (params: unknown): Promise<MCPFunctionResponse> => {
+    try {
+      const validatedParams = z.object({ id: z.string() }).parse(params);
+
+      await this.managementClient.roles.delete({ id: validatedParams.id });
+
+      return {
+        content: {
+          success: true,
+          message: 'Role deleted successfully',
+        },
+      };
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return {
+          error: {
+            message: 'Invalid parameters provided',
+            details: error.errors,
+          },
+        };
+      }
+
+      return {
+        error: {
+          message: 'Failed to delete role',
+          details: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
+  };
+
+  // Function to assign roles to a user
+  public assignRolesToUser: MCPFunction = async (params: unknown): Promise<MCPFunctionResponse> => {
+    try {
+      const validatedParams = AssignRoleParamsSchema.parse(params);
+
+      await this.managementClient.users.assignRoles(
+        { id: validatedParams.user_id },
+        { roles: validatedParams.roles }
+      );
+
+      return {
+        content: {
+          success: true,
+          message: 'Roles assigned to user successfully',
+        },
+      };
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return {
+          error: {
+            message: 'Invalid parameters provided',
+            details: error.errors,
+          },
+        };
+      }
+
+      return {
+        error: {
+          message: 'Failed to assign roles to user',
+          details: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
+  };
+
+  // Function to remove roles from a user
+  public removeRolesFromUser: MCPFunction = async (
+    params: unknown
+  ): Promise<MCPFunctionResponse> => {
+    try {
+      const validatedParams = AssignRoleParamsSchema.parse(params);
+
+      await this.managementClient.users.deleteRoles(
+        { id: validatedParams.user_id },
+        { roles: validatedParams.roles }
+      );
+
+      return {
+        content: {
+          success: true,
+          message: 'Roles removed from user successfully',
+        },
+      };
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return {
+          error: {
+            message: 'Invalid parameters provided',
+            details: error.errors,
+          },
+        };
+      }
+
+      return {
+        error: {
+          message: 'Failed to remove roles from user',
+          details: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
+  };
+
   // Function definitions
   public createUserDefinition: MCPFunctionDefinition = {
     name: 'auth0_create_user',
@@ -312,13 +482,269 @@ export class Auth0AgentToolkit {
     },
   };
 
-  // Get all available functions
+  // Function to create a new application
+  public createApplication: MCPFunction = async (params: unknown): Promise<MCPFunctionResponse> => {
+    try {
+      const validatedParams = z
+        .object({
+          name: z.string(),
+          app_type: z.string().default('regular_web'),
+        })
+        .parse(params);
+
+      const response = await this.managementClient.clients.create({
+        name: validatedParams.name,
+        app_type: validatedParams.app_type as 'regular_web' | 'native' | 'spa' | 'non_interactive',
+      });
+
+      const application = response.data;
+      return {
+        content: {
+          client_id: application.client_id,
+          name: application.name,
+          app_type: application.app_type,
+        },
+      };
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return {
+          error: {
+            message: 'Invalid parameters provided',
+            details: error.errors,
+          },
+        };
+      }
+
+      return {
+        error: {
+          message: 'Failed to create application',
+          details: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
+  };
+
+  // Function to list applications
+  public listApplications: MCPFunction = async (): Promise<MCPFunctionResponse> => {
+    try {
+      const response = await this.managementClient.clients.getAll();
+      const applications = response.data;
+      return {
+        content: applications.map((app) => ({
+          client_id: app.client_id,
+          name: app.name,
+          app_type: app.app_type,
+        })),
+      };
+    } catch (error) {
+      return {
+        error: {
+          message: 'Failed to list applications',
+          details: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
+  };
+
+  // Function to delete an application
+  public deleteApplication: MCPFunction = async (params: unknown): Promise<MCPFunctionResponse> => {
+    try {
+      const validatedParams = z
+        .object({
+          client_id: z.string(),
+        })
+        .parse(params);
+
+      await this.managementClient.clients.delete({ client_id: validatedParams.client_id });
+
+      return {
+        content: {
+          success: true,
+          message: 'Application deleted successfully',
+        },
+      };
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return {
+          error: {
+            message: 'Invalid parameters provided',
+            details: error.errors,
+          },
+        };
+      }
+
+      return {
+        error: {
+          message: 'Failed to delete application',
+          details: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
+  };
+
+  // Function definitions for applications
+  public createApplicationDefinition: MCPFunctionDefinition = {
+    name: 'auth0_create_application',
+    description: 'Create a new Auth0 application',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Name of the application',
+        },
+        app_type: {
+          type: 'string',
+          description: 'Type of the application',
+          default: 'regular_web',
+        },
+      },
+      required: ['name'],
+    },
+  };
+
+  public listApplicationsDefinition: MCPFunctionDefinition = {
+    name: 'auth0_list_applications',
+    description: 'List all Auth0 applications',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+  };
+
+  public deleteApplicationDefinition: MCPFunctionDefinition = {
+    name: 'auth0_delete_application',
+    description: 'Delete an Auth0 application',
+    parameters: {
+      type: 'object',
+      properties: {
+        client_id: {
+          type: 'string',
+          description: 'Client ID of the application',
+        },
+      },
+      required: ['client_id'],
+    },
+  };
+
+  public createRoleDefinition: MCPFunctionDefinition = {
+    name: 'auth0_create_role',
+    description: 'Create a new role in Auth0',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Name of the role',
+        },
+        description: {
+          type: 'string',
+          description: 'Description of the role',
+        },
+      },
+      required: ['name'],
+    },
+  };
+
+  public listRolesDefinition: MCPFunctionDefinition = {
+    name: 'auth0_list_roles',
+    description: 'List all roles in Auth0',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+  };
+
+  public deleteRoleDefinition: MCPFunctionDefinition = {
+    name: 'auth0_delete_role',
+    description: 'Delete a role from Auth0',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'Role ID',
+        },
+      },
+      required: ['id'],
+    },
+  };
+
+  public assignRolesToUserDefinition: MCPFunctionDefinition = {
+    name: 'auth0_assign_roles_to_user',
+    description: 'Assign roles to a user in Auth0',
+    parameters: {
+      type: 'object',
+      properties: {
+        user_id: {
+          type: 'string',
+          description: 'User ID',
+        },
+        roles: {
+          type: 'array',
+          items: {
+            type: 'string',
+          },
+          description: 'Array of role IDs to assign',
+        },
+      },
+      required: ['user_id', 'roles'],
+    },
+  };
+
+  public removeRolesFromUserDefinition: MCPFunctionDefinition = {
+    name: 'auth0_remove_roles_from_user',
+    description: 'Remove roles from a user in Auth0',
+    parameters: {
+      type: 'object',
+      properties: {
+        user_id: {
+          type: 'string',
+          description: 'User ID',
+        },
+        roles: {
+          type: 'array',
+          items: {
+            type: 'string',
+          },
+          description: 'Array of role IDs to remove',
+        },
+      },
+      required: ['user_id', 'roles'],
+    },
+  };
+
   public getFunctions(): [MCPFunctionDefinition, MCPFunction][] {
     return [
       [this.createUserDefinition, this.createUser],
       [this.getUserDefinition, this.getUser],
       [this.updateUserDefinition, this.updateUser],
       [this.deleteUserDefinition, this.deleteUser],
+      [this.createRoleDefinition, this.createRole],
+      [this.listRolesDefinition, this.listRoles],
+      [this.deleteRoleDefinition, this.deleteRole],
+      [this.assignRolesToUserDefinition, this.assignRolesToUser],
+      [this.removeRolesFromUserDefinition, this.removeRolesFromUser],
+      [this.createApplicationDefinition, this.createApplication],
+      [this.listApplicationsDefinition, this.listApplications],
+      [this.deleteApplicationDefinition, this.deleteApplication],
+    ];
+  }
+
+  public getTools(): MCPFunctionDefinition[] {
+    return [
+      this.createUserDefinition,
+      this.getUserDefinition,
+      this.updateUserDefinition,
+      this.deleteUserDefinition,
+      this.createRoleDefinition,
+      this.listRolesDefinition,
+      this.deleteRoleDefinition,
+      this.assignRolesToUserDefinition,
+      this.removeRolesFromUserDefinition,
+      this.createApplicationDefinition,
+      this.listApplicationsDefinition,
+      this.deleteApplicationDefinition,
     ];
   }
 }

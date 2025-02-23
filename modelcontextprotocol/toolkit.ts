@@ -26,7 +26,7 @@ export class Auth0MCP extends McpServer {
     super({
       name: 'Auth0',
       version: '1.0.0',
-      description: 'Auth0 User Management API'
+      description: 'Auth0 User Management API',
     });
 
     this.client = new ManagementClient({
@@ -36,8 +36,157 @@ export class Auth0MCP extends McpServer {
     });
 
     this.registerTools();
+    this.registerCreateApplicationTool();
+    this.registerListApplicationsTool();
+    this.registerDeleteApplicationTool();
+    this.registerUpdateRoleTool();
+    this.registerListRolesTool();
+    this.registerGetApplicationTool();
+    this.registerUpdateApplicationTool();
+    this.registerAssignRolesToUserTool();
+    this.registerRemoveRolesFromUserTool();
   }
 
+  private registerCreateApplicationTool(): void {
+    this.tool(
+      'auth0_create_application',
+      {
+        name: z.string().describe('Name of the application'),
+        app_type: z.string().default('regular_web').describe('Type of the application'),
+      },
+      async (params) => {
+        try {
+          const response = await this.client.clients.create({
+            name: params.name,
+            app_type: params.app_type as 'regular_web' | 'native' | 'spa' | 'non_interactive',
+          });
+
+          const application = response.data;
+          return {
+            content: [{ type: 'text', text: JSON.stringify(application, null, 2) }],
+          };
+        } catch (error) {
+          throw this.formatError('Failed to create application', error);
+        }
+      }
+    );
+  }
+
+  private registerListApplicationsTool(): void {
+    this.tool('auth0_list_applications', {}, async () => {
+      try {
+        const response = await this.client.clients.getAll();
+        const applications = response.data;
+        return {
+          content: [{ type: 'text', text: JSON.stringify(applications, null, 2) }],
+        };
+      } catch (error) {
+        throw this.formatError('Failed to list applications', error);
+      }
+    });
+  }
+
+  private registerListRolesTool(): void {
+    this.tool('auth0_list_roles', {}, async () => {
+      try {
+        const roles = await this.client.roles.getAll();
+        return { content: [{ type: 'text', text: JSON.stringify(roles, null, 2) }] };
+      } catch (error) {
+        throw this.formatError('Failed to list roles', error);
+      }
+    });
+  }
+
+  private registerUpdateRoleTool(): void {
+    this.tool(
+      'auth0_update_role',
+      {
+        id: z.string().describe('Role ID'),
+        name: z.string().optional().describe('New name of the role'),
+        description: z.string().optional().describe('New description of the role'),
+      },
+      async (params) => {
+        try {
+          const { id, ...updateData } = params;
+          const role = await this.client.roles.update({ id }, updateData);
+          return { content: [{ type: 'text', text: JSON.stringify(role, null, 2) }] };
+        } catch (error) {
+          throw this.formatError('Failed to update role', error);
+        }
+      }
+    );
+  }
+
+  private registerGetApplicationTool(): void {
+    this.tool(
+      'auth0_get_application',
+      {
+        client_id: z.string().describe('Client ID of the application'),
+      },
+      async (params) => {
+        try {
+          const application = await this.client.clients.get({ client_id: params.client_id });
+          return { content: [{ type: 'text', text: JSON.stringify(application, null, 2) }] };
+        } catch (error) {
+          throw this.formatError('Failed to get application details', error);
+        }
+      }
+    );
+  }
+
+  private registerUpdateApplicationTool(): void {
+    this.tool(
+      'auth0_update_application',
+      {
+        client_id: z.string().describe('Client ID of the application'),
+        name: z.string().optional().describe('New name of the application'),
+        app_type: z.string().optional().describe('New type of the application'),
+      },
+      async (params) => {
+        try {
+          const { client_id, ...updateData } = params;
+          const application = await this.client.clients.update(
+            { client_id },
+            {
+              ...updateData,
+              app_type: updateData.app_type as 'regular_web' | 'native' | 'spa' | 'non_interactive',
+            }
+          );
+          return { content: [{ type: 'text', text: JSON.stringify(application, null, 2) }] };
+        } catch (error) {
+          throw this.formatError('Failed to update application', error);
+        }
+      }
+    );
+  }
+
+  private registerDeleteApplicationTool(): void {
+    this.tool(
+      'auth0_delete_application',
+      {
+        client_id: z.string().describe('Client ID of the application'),
+      },
+      async (params) => {
+        try {
+          await this.client.clients.delete({ client_id: params.client_id });
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  { success: true, message: 'Application deleted successfully' },
+                  null,
+                  2
+                ),
+              },
+            ],
+          };
+        } catch (error) {
+          throw this.formatError('Failed to delete application', error);
+        }
+      }
+    );
+  }
   private registerTools(): void {
     this.registerListUsersTools();
     this.registerCreateUserTool();
@@ -64,7 +213,7 @@ export class Auth0MCP extends McpServer {
           } = {
             page: Number(params.page),
             per_page: Number(params.per_page),
-            include_totals: true
+            include_totals: true,
           };
 
           const users = await this.client.users.getAll(requestParams);
@@ -80,8 +229,8 @@ export class Auth0MCP extends McpServer {
     this.tool(
       'auth0_create_user',
       {
-        email: z.string().email().describe('User\'s email address'),
-        password: z.string().min(8).describe('User\'s password (min 8 characters)'),
+        email: z.string().email().describe("User's email address"),
+        password: z.string().min(8).describe("User's password (min 8 characters)"),
         connection: z.string().default('Username-Password-Authentication'),
         verify_email: z.boolean().default(false),
         user_metadata: z.record(z.any()).optional(),
@@ -95,10 +244,16 @@ export class Auth0MCP extends McpServer {
 
           if (Array.isArray(existingUsers) && existingUsers.length > 0) {
             return {
-              content: [{
-                type: 'text',
-                text: JSON.stringify({ ...existingUsers[0], _note: 'User already exists' }, null, 2)
-              }]
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(
+                    { ...existingUsers[0], _note: 'User already exists' },
+                    null,
+                    2
+                  ),
+                },
+              ],
             };
           }
 
@@ -161,13 +316,77 @@ export class Auth0MCP extends McpServer {
         try {
           await this.client.users.delete({ id: params.id });
           return {
-            content: [{
-              type: 'text',
-              text: JSON.stringify({ success: true, message: 'User deleted successfully' }, null, 2)
-            }]
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  { success: true, message: 'User deleted successfully' },
+                  null,
+                  2
+                ),
+              },
+            ],
           };
         } catch (error) {
           throw this.formatError('Failed to delete user', error);
+        }
+      }
+    );
+  }
+
+  private registerAssignRolesToUserTool(): void {
+    this.tool(
+      'auth0_assign_roles_to_user',
+      {
+        user_id: z.string().describe('User ID'),
+        roles: z.array(z.string()).describe('Array of role IDs to assign'),
+      },
+      async (params) => {
+        try {
+          await this.client.users.assignRoles({ id: params.user_id }, { roles: params.roles });
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  { success: true, message: 'Roles assigned to user successfully' },
+                  null,
+                  2
+                ),
+              },
+            ],
+          };
+        } catch (error) {
+          throw this.formatError('Failed to assign roles to user', error);
+        }
+      }
+    );
+  }
+
+  private registerRemoveRolesFromUserTool(): void {
+    this.tool(
+      'auth0_remove_roles_from_user',
+      {
+        user_id: z.string().describe('User ID'),
+        roles: z.array(z.string()).describe('Array of role IDs to remove'),
+      },
+      async (params) => {
+        try {
+          await this.client.users.deleteRoles({ id: params.user_id }, { roles: params.roles });
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  { success: true, message: 'Roles removed from user successfully' },
+                  null,
+                  2
+                ),
+              },
+            ],
+          };
+        } catch (error) {
+          throw this.formatError('Failed to remove roles from user', error);
         }
       }
     );
